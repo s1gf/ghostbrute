@@ -11,7 +11,7 @@ type Logger struct {
 }
 
 func NewLogger(verbose bool, logFileName string) Logger {
-	log := logging.MustGetLogger("kerbrute")
+	log := logging.MustGetLogger("ghostbrute")
 	format := logging.MustStringFormatter(
 		`%{color}%{time:2006/01/02 15:04:05} >  %{message}%{color:reset}`,
 	)
@@ -22,7 +22,7 @@ func NewLogger(verbose bool, logFileName string) Logger {
 	backendFormatter := logging.NewBackendFormatter(backend, format)
 
 	if logFileName != "" {
-		outputFile, err := os.Create(logFileName)
+		outputFile, err := os.OpenFile(logFileName, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			panic(err)
 		}

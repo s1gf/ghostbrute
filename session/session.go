@@ -2,7 +2,7 @@ package session
 
 import (
 	"fmt"
-	"github.com/ropnop/kerbrute/util"
+	"github.com/ghostbrute/ghostbrute/util"
 	"html/template"
 	"os"
 	"strings"

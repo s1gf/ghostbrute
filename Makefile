@@ -1,7 +1,7 @@
 TARGET=./dist
-ARCHS=amd64 386 
+ARCHS=amd64 arm64
 GOOS=windows linux darwin
-PACKAGENAME="github.com/ropnop/kerbrute"
+PACKAGENAME="github.com/ghostbrute/ghostbrute"
 
 COMMIT=`git rev-parse --short HEAD`
 DATE=`date +%m/%d/%y`
@@ -24,33 +24,31 @@ LDFLAGS="-X ${PACKAGENAME}/util.GitCommit=${COMMIT} \
 help:           ## Show this help.
 	@fgrep -h "##" $(MAKEFILE_LIST) | fgrep -v fgrep | sed -e 's/\\$$//' | sed -e 's/##//'
 
-windows: ## Make Windows x86 and x64 Binaries
+windows: ## Make Windows x86_64 and arm64 Binaries
 	@for ARCH in ${ARCHS}; do \
 		echo "Building for windows $${ARCH}.." ;\
-		GOOS=windows GOARCH=$${ARCH} go build -a -ldflags ${LDFLAGS} -o ${TARGET}/kerbrute_windows_$${ARCH}.exe || exit 1 ;\
+		GOOS=windows GOARCH=$${ARCH} go build -a -ldflags ${LDFLAGS} -o ${TARGET}/ghostbrute_windows_$${ARCH}.exe || exit 1 ;\
 	done; \
 	echo "Done."
 
-linux: ## Make Linux x86 and x64 Binaries
+linux: ## Make Linux x86_64 and arm64 Binaries
 	@for ARCH in ${ARCHS}; do \
 		echo "Building for linux $${ARCH}..." ; \
-		GOOS=linux GOARCH=$${ARCH} go build -a -ldflags ${LDFLAGS} -o ${TARGET}/kerbrute_linux_$${ARCH} || exit 1 ;\
+		GOOS=linux GOARCH=$${ARCH} go build -a -ldflags ${LDFLAGS} -o ${TARGET}/ghostbrute_linux_$${ARCH} || exit 1 ;\
 	done; \
 	echo "Done."
 
-mac: ## Make Darwin (Mac) x86 and x64 Binaries
+mac: ## Make Darwin (Mac) x86_64 and arm64 Binaries
 	@for ARCH in ${ARCHS}; do \
 		echo "Building for mac $${ARCH}..." ; \
-		GOOS=darwin GOARCH=$${ARCH} go build -a -ldflags ${LDFLAGS} -o ${TARGET}/kerbrute_darwin_$${ARCH} || exit 1 ;\
+		GOOS=darwin GOARCH=$${ARCH} go build -a -ldflags ${LDFLAGS} -o ${TARGET}/ghostbrute_darwin_$${ARCH} || exit 1 ;\
 	done; \
 	echo "Done."
 
 clean: ## Delete any binaries
 	@rm -f ${TARGET}/* ; \
-	go clean -i -n github.com/ropnop/kerbrute ; \
+	go clean -i -n github.com/ghostbrute/ghostbrute ; \
 	echo "Done."
 
-all: ## Make Windows, Linux and Mac x86/x64 Binaries
+all: ## Make Windows, Linux and Mac x86_64/arm64 Binaries
 all: clean windows linux mac
-
-

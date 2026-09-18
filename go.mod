@@ -1,4 +1,4 @@
-module github.com/ropnop/kerbrute
+module github.com/ghostbrute/ghostbrute
 
 go 1.13
 

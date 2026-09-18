@@ -8,11 +8,12 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "kerbrute",
-	Short: "A tool to perform various bruteforce attacks against Windows Kerberos",
-	Long: `This tool is designed to assist in quickly bruteforcing valid Active Directory accounts through Kerberos Pre-Authentication.
-It is designed to be used on an internal Windows domain with access to one of the Domain Controllers.
-Warning: failed Kerberos Pre-Auth counts as a failed login and WILL lock out accounts`,
+	Use:   "ghostbrute",
+	Short: "Evasive Kerberos password spraying with traffic-shaped timing",
+	Long: `ghostbrute is an evasive Kerberos pre-authentication spraying tool with
+CaptainCredz-style traffic shaping, cache/resume, and fine-grained timing control.
+Built for long-running red team engagements where blending into normal auth traffic matters.
+Based on kerbrute by @ropnop. Warning: failed Kerberos Pre-Auth counts as a failed login and WILL lock out accounts`,
 }
 
 func Execute() {
