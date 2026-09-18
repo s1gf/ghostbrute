@@ -128,7 +128,7 @@ func sprayCampaign(cmd *cobra.Command, args []string) {
 	stopChan := make(chan struct{})
 	go func() {
 		<-sigChan
-		logger.Log.Warning("\nInterrupt received — saving state and shutting down...")
+		logger.Log.Warning("\nInterrupt received - saving state and shutting down...")
 		close(stopChan)
 	}()
 
@@ -286,7 +286,7 @@ func attemptLogin(username, password string) (success bool, fatal bool, err erro
 		if !ok {
 			logger.Log.Errorf("[!] %v - %v", login, errorString)
 			if kSession.SafeMode {
-				logger.Log.Error("Safe mode triggered — aborting campaign")
+				logger.Log.Error("Safe mode triggered - aborting campaign")
 				return false, true, fmt.Errorf("%s", errorString)
 			}
 			return false, true, fmt.Errorf("%s", errorString)

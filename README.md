@@ -12,12 +12,12 @@ The only thing that burns it is speed. A burst of AS-REQs from one IP at 3 AM on
 
 ## What's new over kerbrute
 
-- **`spraycampaign` command** — spray a full password list across users, one password at a time, with traffic-shaped delays between each request
-- **Timing engine** — hour-of-day and day-of-week speed factors, jitter, daily ramp. Configurable via JSON. Automatically pauses during off-hours
-- **Cache/resume** — JSON state file tracks every attempt. Ctrl+C, come back tomorrow, restart with the same cache file
-- **Lockout safety** — `--max-per-user` caps attempts per user. `--safe` aborts the whole campaign on any lockout
-- **Interruptible sleeps** — Ctrl+C exits immediately, even during a long off-hours delay
-- **Secure defaults** — cache and log files are `0600`
+- **`spraycampaign` command** - spray a full password list across users, one password at a time, with traffic-shaped delays between each request
+- **Timing engine** - hour-of-day and day-of-week speed factors, jitter, daily ramp. Configurable via JSON. Automatically pauses during off-hours
+- **Cache/resume** - JSON state file tracks every attempt. Ctrl+C, come back tomorrow, restart with the same cache file
+- **Lockout safety** - `--max-per-user` caps attempts per user. `--safe` aborts the whole campaign on any lockout
+- **Interruptible sleeps** - Ctrl+C exits immediately, even during a long off-hours delay
+- **Secure defaults** - cache and log files are `0600`
 
 All original kerbrute commands (`userenum`, `passwordspray`, `bruteuser`, `bruteforce`) still work.
 
@@ -178,17 +178,17 @@ See [`timing.example.json`](timing.example.json) for a ready-to-use config.
 
 ### Fields
 
-`utc_offset` — target timezone as UTC offset (e.g. `2` for CEST, `-5` for EST). Default `0`.
+`utc_offset` - target timezone as UTC offset (e.g. `2` for CEST, `-5` for EST). Default `0`.
 
-`base_delay` — seconds between requests when all factors are 1.0. Default `5.0`.
+`base_delay` - seconds between requests when all factors are 1.0. Default `5.0`.
 
-`initial_speed` / `daily_speedup` — speed ramp. The multiplier is `initial_speed * daily_speedup ^ days_running`, capped at 10x. So with `initial_speed=0.5` and `daily_speedup=1.25`, day 1 is half speed, day 5 is ~1.5x, and it caps at 10x. Default both `1.0` (no ramp).
+`initial_speed` / `daily_speedup` - speed ramp. The multiplier is `initial_speed * daily_speedup ^ days_running`, capped at 10x. So with `initial_speed=0.5` and `daily_speedup=1.25`, day 1 is half speed, day 5 is ~1.5x, and it caps at 10x. Default both `1.0` (no ramp).
 
-`jitter_min` / `jitter_max` — random jitter range in seconds, added to every delay. Default `0`.
+`jitter_min` / `jitter_max` - random jitter range in seconds, added to every delay. Default `0`.
 
-`hours_factor` — speed factor per hour, keyed `"0"` through `"23"`. `1.0` = full speed, `0.1` = 10x slower. Missing hours default to `0.5`.
+`hours_factor` - speed factor per hour, keyed `"0"` through `"23"`. `1.0` = full speed, `0.1` = 10x slower. Missing hours default to `0.5`.
 
-`days_factor` — speed factor per weekday, keyed `"mon"` through `"sun"`. Same scale. Missing days default to `0.5`.
+`days_factor` - speed factor per weekday, keyed `"mon"` through `"sun"`. Same scale. Missing days default to `0.5`.
 
 ### Delay formula
 
@@ -200,7 +200,7 @@ Minimum 100ms regardless of config.
 
 At 9 AM Tuesday with the example config: `5.0 / (1.0 * 1.0 * 0.5) + ~2s jitter ≈ 12 seconds`.
 
-At 2 AM Sunday: `hour_factor * day_factor = 0.01`, which is below 0.05 — the campaign pauses entirely and polls every 30 seconds until the window opens back up.
+At 2 AM Sunday: `hour_factor * day_factor = 0.01`, which is below 0.05 - the campaign pauses entirely and polls every 30 seconds until the window opens back up.
 
 ## Cache / resume
 
@@ -235,14 +235,14 @@ Restart with the same `--cache-file` and already-tried pairs get skipped. The fi
 
 What works in your favor:
 - Pre-auth failures generate 4768/4771, not 4625
-- gokrb5's packets match real Windows clients on the wire
+- The Kerberos packets match real Windows clients on the wire
 - Traffic shaping blends into normal auth patterns
 - Off-hours pausing avoids dead-of-night anomalies
 
 What can still catch you:
-- Suricata rules that threshold AS-REQ volume per source IP (common default: 10 in 30s). The timing engine keeps you well under this
-- SIEM correlation of 4768 events across many users from one IP
-- `ClientAdvertizedEncryptionTypes` field in event 4768 on Server 2016+ with Jan 2025+ updates
+- **Volume thresholds.** Network monitoring that counts authentication requests per source IP over a time window. The timing engine keeps you under typical thresholds, but every environment is different
+- **Cross-user correlation.** One IP authenticating as hundreds of different users in a short period is not normal, no matter the speed. Spread over time, this signal weakens but never fully disappears
+- **Protocol metadata.** Newer Windows versions log additional fields on Kerberos events (supported encryption types, client info) that defenders can use to spot non-standard clients. gokrb5 is clean today, but this is an evolving area
 
 Failed Kerberos pre-auth counts as a failed login and **will** lock out accounts. Use `--safe` and `--max-per-user` on real engagements.
 
@@ -250,8 +250,8 @@ Failed Kerberos pre-auth counts as a failed login and **will** lock out accounts
 
 - [kerbrute](https://github.com/ropnop/kerbrute) by [@ropnop](https://github.com/ropnop)
 - [gokrb5](https://github.com/jcmturner/gokrb5) by jcmturner
-- [CaptainCredz](https://github.com/synacktiv/captaincredz) by Synacktiv — timing engine inspiration
-- [deadjakk](https://github.com/deadjakk) — original spraycampaign concept ([PR #41](https://github.com/ropnop/kerbrute/pull/41))
+- [CaptainCredz](https://github.com/synacktiv/captaincredz) by Synacktiv - timing engine inspiration
+- [deadjakk](https://github.com/deadjakk) - original spraycampaign concept ([PR #41](https://github.com/ropnop/kerbrute/pull/41))
 
 ## License
 
