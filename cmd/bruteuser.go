@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ghostbrute/ghostbrute/util"
+	"github.com/s1gf/ghostbrute/util"
 
 	"github.com/spf13/cobra"
 )

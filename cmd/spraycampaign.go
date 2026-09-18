@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	gcache "github.com/ghostbrute/ghostbrute/cache"
-	"github.com/ghostbrute/ghostbrute/timing"
-	"github.com/ghostbrute/ghostbrute/util"
+	gcache "github.com/s1gf/ghostbrute/cache"
+	"github.com/s1gf/ghostbrute/timing"
+	"github.com/s1gf/ghostbrute/util"
 
 	"github.com/spf13/cobra"
 )

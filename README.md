@@ -23,10 +23,10 @@ All original kerbrute commands (`userenum`, `passwordspray`, `bruteuser`, `brute
 
 ## Installing
 
-Grab a binary from [releases](https://github.com/ghostbrute/ghostbrute/releases), or build from source:
+Grab a binary from [releases](https://github.com/s1gf/ghostbrute/releases), or build from source:
 
 ```
-git clone https://github.com/ghostbrute/ghostbrute.git
+git clone https://github.com/s1gf/ghostbrute.git
 cd ghostbrute
 make all
 ```

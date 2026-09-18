@@ -4,8 +4,8 @@ import (
 	"context"
 	"os"
 
-	"github.com/ghostbrute/ghostbrute/session"
-	"github.com/ghostbrute/ghostbrute/util"
+	"github.com/s1gf/ghostbrute/session"
+	"github.com/s1gf/ghostbrute/util"
 	"github.com/spf13/cobra"
 )
 

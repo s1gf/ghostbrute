@@ -1,4 +1,4 @@
-module github.com/ghostbrute/ghostbrute
+module github.com/s1gf/ghostbrute
 
 go 1.13
 

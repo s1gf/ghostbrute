@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/ghostbrute/ghostbrute/cmd"
-	"github.com/ghostbrute/ghostbrute/util"
+	"github.com/s1gf/ghostbrute/cmd"
+	"github.com/s1gf/ghostbrute/util"
 )
 
 func main() {
