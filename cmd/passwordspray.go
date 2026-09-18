@@ -20,10 +20,10 @@ var password string
 var passwordSprayCmd = &cobra.Command{
 	Use:   "passwordspray [flags] <username_wordlist> <password>",
 	Short: "Test a single password against a list of users",
-	Long: `Will perform a password spray attack against a list of users using Kerberos Pre-Authentication by requesting a TGT from the KDC.
+	Long: `Test a single password against a list of users using Kerberos Pre-Authentication.
+For spraying multiple passwords with traffic shaping and cache/resume, use 'spraycampaign' instead.
 If no domain controller is specified, the tool will attempt to look one up via DNS SRV records.
-A full domain is required. This domain will be capitalized and used as the Kerberos realm when attempting the bruteforce.
-Succesful logins will be displayed on stdout.
+A full domain is required. This domain will be capitalized and used as the Kerberos realm.
 WARNING: use with caution - failed Kerberos pre-auth can cause account lockouts`,
 	Args:   cobra.MinimumNArgs(1),
 	PreRun: setupSession,

@@ -1,198 +1,237 @@
-# Kerbrute
-[![CircleCI](https://circleci.com/gh/ropnop/kerbrute.svg?style=svg)](https://circleci.com/gh/ropnop/kerbrute)
+# ghostbrute
 
-A tool to quickly bruteforce and enumerate valid Active Directory accounts through Kerberos Pre-Authentication
+Evasive Kerberos password spraying with traffic-shaped timing.
 
-Grab the latest binaries from the [releases page](https://github.com/ropnop/kerbrute/releases/latest) to get started.
+A fork of [kerbrute](https://github.com/ropnop/kerbrute) by [@ropnop](https://github.com/ropnop), adding CaptainCredz-style traffic shaping, cache/resume, and a dedicated `spraycampaign` mode for long-running red team engagements.
 
-## Background
-This tool grew out of some [bash scripts](https://github.com/ropnop/kerberos_windows_scripts) I wrote a few years ago to perform bruteforcing using the Heimdal Kerberos client from Linux. I wanted something that didn't require privileges to install a Kerberos client, and when I found the amazing pure Go implementation of Kerberos [gokrb5](https://github.com/jcmturner/gokrb5), I decided to finally learn Go and write this. 
+## Why ghostbrute?
 
-Bruteforcing Windows passwords with Kerberos is much faster than any other approach I know of, and potentially stealthier since pre-authentication failures do not trigger that "traditional" `An account failed to log on` event 4625. With Kerberos, you can validate a username or test a login by only sending one UDP frame to the KDC (Domain Controller)
+Kerbrute's Kerberos pre-auth approach is already stealthier than SMB or LDAP spraying — it generates event 4768/4771 instead of the heavily-monitored 4625, and gokrb5's AS-REQ packets are indistinguishable from a real Windows client on the wire. The only thing that burns it is **speed**: a burst of AS-REQs from one IP at 3 AM on a Sunday is trivially flagged by any rate-based detection.
 
-For more background and information, check out my Troopers 2019 talk, Fun with LDAP and Kerberos (link TBD)
+ghostbrute solves this by shaping spray traffic to match normal business-hour authentication patterns — spraying faster during peak hours, slower at night, near-silent on weekends — so the requests blend into legitimate AD noise.
 
-## Usage
-Kerbrute has three main commands:
- * **bruteuser** - Bruteforce a single user's password from a wordlist
- * **bruteforce** - Read username:password combos from a file or stdin and test them
- * **passwordspray** - Test a single password against a list of users
- * **userenum** - Enumerate valid domain usernames via Kerberos
+## Features
 
-A domain (`-d`) or a domain controller (`--dc`) must be specified. If a Domain Controller is not given the KDC will be looked up via DNS.
+| Feature | Description |
+|---|---|
+| **spraycampaign** | Spray a password list across a user list, one password at a time |
+| **Traffic-shaped timing** | Hour-of-day and day-of-week factors, daily speed ramp, configurable jitter |
+| **Cache/resume** | JSON state file — Ctrl+C and restart, picks up where it left off |
+| **Lockout safety** | `--max-per-user` caps attempts per user; `--safe` aborts on any lockout |
+| **Fatal error handling** | Network errors and lockouts abort the campaign instead of spraying into the void |
+| **Interruptible** | All delays respond to Ctrl+C immediately — no hanging on long sleeps |
+| **Secure by default** | Cache and log files written with 0600 permissions |
 
-By default, Kerbrute is multithreaded and uses 10 threads. This can be changed with the `-t` option.
+Plus all original kerbrute commands: `userenum`, `passwordspray`, `bruteuser`, `bruteforce`.
 
-Output is logged to stdout, but a log file can be specified with `-o`.
+## Installation
 
-By default, failures are not logged, but that can be changed with `-v`.
+Grab a binary from the [releases page](https://github.com/ghostbrute/ghostbrute/releases), or build from source:
 
-Lastly, Kerbrute has a `--safe` option. When this option is enabled, if an account comes back as locked out, it will abort all threads to stop locking out any other accounts.
+```bash
+git clone https://github.com/ghostbrute/ghostbrute.git
+cd ghostbrute
+make all
+ls dist/
+```
 
-The `help` command can be used for more information
+Builds for Linux, Windows, and macOS (amd64 + arm64). Single static binary, no dependencies.
+
+## Quick Start
+
+```bash
+# Basic spray campaign with default timing (business hours curve)
+./ghostbrute spraycampaign -d contoso.local --dc 10.0.0.1 users.txt passwords.txt
+
+# With custom timing profile and cache
+./ghostbrute spraycampaign -d contoso.local --dc 10.0.0.1 \
+  --timing-config timing.json \
+  --cache-file engagement.cache \
+  --safe -v \
+  users.txt passwords.txt
+
+# Limit to 3 attempts per user + try username as password
+./ghostbrute spraycampaign -d contoso.local --dc 10.0.0.1 \
+  --max-per-user 3 \
+  --user-as-pass \
+  --timing-config timing.json \
+  users.txt passwords.txt
+```
+
+## Commands
+
+### spraycampaign (new)
+
+The primary mode. Sprays one password at a time across all users, with traffic-shaped delays between each request. Supports cache/resume and timing profiles.
 
 ```
-$ ./kerbrute -h
-
-    __             __               __
-   / /_____  _____/ /_  _______  __/ /____
-  / //_/ _ \/ ___/ __ \/ ___/ / / / __/ _ \
- / ,< /  __/ /  / /_/ / /  / /_/ / /_/  __/
-/_/|_|\___/_/  /_.___/_/   \__,_/\__/\___/
-
-Version: dev (bc1d606) - 11/15/20 - Ronnie Flathers @ropnop
-
-This tool is designed to assist in quickly bruteforcing valid Active Directory accounts through Kerberos Pre-Authentication.
-It is designed to be used on an internal Windows domain with access to one of the Domain Controllers.
-Warning: failed Kerberos Pre-Auth counts as a failed login and WILL lock out accounts
-
-Usage:
-  kerbrute [command]
-
-Available Commands:
-  bruteforce    Bruteforce username:password combos, from a file or stdin
-  bruteuser     Bruteforce a single user's password from a wordlist
-  help          Help about any command
-  passwordspray Test a single password against a list of users
-  userenum      Enumerate valid domain usernames via Kerberos
-  version       Display version info and quit
+ghostbrute spraycampaign [flags] <username_wordlist> <password_wordlist>
 
 Flags:
-      --dc string          The location of the Domain Controller (KDC) to target. If blank, will lookup via DNS
-      --delay int          Delay in millisecond between each attempt. Will always use single thread if set
-  -d, --domain string      The full domain to use (e.g. contoso.com)
-      --downgrade          Force downgraded encryption type (arcfour-hmac-md5)
-      --hash-file string   File to save AS-REP hashes to (if any captured), otherwise just logged
-  -h, --help               help for kerbrute
-  -o, --output string      File to write logs to. Optional.
-      --safe               Safe mode. Will abort if any user comes back as locked out. Default: FALSE
-  -t, --threads int        Threads to use (default 10)
-  -v, --verbose            Log failures and errors
-
-Use "kerbrute [command] --help" for more information about a command.
+    --timing-config string   JSON timing config file for traffic-shaped delays
+    --cache-file string      Cache file for resume support (default: ghostbrute.cache)
+    --max-per-user int       Max password attempts per user (0 = unlimited)
+    --user-as-pass           Also try each username as its own password
 ```
 
-### User Enumeration
-To enumerate usernames, Kerbrute sends TGT requests with no pre-authentication. If the KDC responds with a `PRINCIPAL UNKNOWN` error, the username does not exist. However, if the KDC prompts for pre-authentication, we know the username exists and we move on. This does not cause any login failures so it will not lock out any accounts. This generates a Windows event ID [4768](https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventID=4768) if Kerberos logging is enabled.
+**Workflow:**
+1. If `--user-as-pass` is set, tries every username as its own password first (Phase 0)
+2. Sprays password 1 across all users, respecting timing delays
+3. Waits between password sweeps (3x the computed delay)
+4. Sprays password 2, and so on
+5. Pauses automatically during off-hours (factor < 0.05) and resumes when the activity window opens
+6. On Ctrl+C, saves state and exits — restart with the same `--cache-file` to resume
 
-```
-root@kali:~# ./kerbrute_linux_amd64 userenum -d lab.ropnop.com usernames.txt
+### userenum
 
-    __             __               __
-   / /_____  _____/ /_  _______  __/ /____
-  / //_/ _ \/ ___/ __ \/ ___/ / / / __/ _ \
- / ,< /  __/ /  / /_/ / /  / /_/ / /_/  __/
-/_/|_|\___/_/  /_.___/_/   \__,_/\__/\___/
+Enumerate valid domain usernames via Kerberos. Does not cause login failures or lockouts.
 
-Version: dev (43f9ca1) - 03/06/19 - Ronnie Flathers @ropnop
-
-2019/03/06 21:28:04 >  Using KDC(s):
-2019/03/06 21:28:04 >   pdc01.lab.ropnop.com:88
-
-2019/03/06 21:28:04 >  [+] VALID USERNAME:       amata@lab.ropnop.com
-2019/03/06 21:28:04 >  [+] VALID USERNAME:       thoffman@lab.ropnop.com
-2019/03/06 21:28:04 >  Done! Tested 1001 usernames (2 valid) in 0.425 seconds
+```bash
+./ghostbrute userenum -d contoso.local --dc 10.0.0.1 usernames.txt
 ```
 
-### Password Spray
-With `passwordspray`, Kerbrute will perform a horizontal brute force attack against a list of domain users. This is useful for testing one or two common passwords when you have a large list of users. WARNING: this does will increment the failed login count and lock out accounts. This will generate both event IDs [4768 - A Kerberos authentication ticket (TGT) was requested](https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventID=4768) and [4771 - Kerberos pre-authentication failed](https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventID=4771)
+### passwordspray
 
-```
-root@kali:~# ./kerbrute_linux_amd64 passwordspray -d lab.ropnop.com domain_users.txt Password123
+Test a single password against a list of users (original kerbrute behavior).
 
-    __             __               __
-   / /_____  _____/ /_  _______  __/ /____
-  / //_/ _ \/ ___/ __ \/ ___/ / / / __/ _ \
- / ,< /  __/ /  / /_/ / /  / /_/ / /_/  __/
-/_/|_|\___/_/  /_.___/_/   \__,_/\__/\___/
-
-Version: dev (43f9ca1) - 03/06/19 - Ronnie Flathers @ropnop
-
-2019/03/06 21:37:29 >  Using KDC(s):
-2019/03/06 21:37:29 >   pdc01.lab.ropnop.com:88
-
-2019/03/06 21:37:35 >  [+] VALID LOGIN:  callen@lab.ropnop.com:Password123
-2019/03/06 21:37:37 >  [+] VALID LOGIN:  eshort@lab.ropnop.com:Password123
-2019/03/06 21:37:37 >  Done! Tested 2755 logins (2 successes) in 7.674 seconds
+```bash
+./ghostbrute passwordspray -d contoso.local --dc 10.0.0.1 users.txt 'Spring2026!'
 ```
 
-### Brute User
-This is a traditional bruteforce account against a username. Only run this if you are sure there is no lockout policy! This will generate both event IDs [4768 - A Kerberos authentication ticket (TGT) was requested](https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventID=4768) and [4771 - Kerberos pre-authentication failed](https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventID=4771)
+### bruteuser
 
-```
-root@kali:~# ./kerbrute_linux_amd64 bruteuser -d lab.ropnop.com passwords.lst thoffman
+Bruteforce a single user's password from a wordlist. Only use if there is no lockout policy.
 
-    __             __               __
-   / /_____  _____/ /_  _______  __/ /____
-  / //_/ _ \/ ___/ __ \/ ___/ / / / __/ _ \
- / ,< /  __/ /  / /_/ / /  / /_/ / /_/  __/
-/_/|_|\___/_/  /_.___/_/   \__,_/\__/\___/
-
-Version: dev (43f9ca1) - 03/06/19 - Ronnie Flathers @ropnop
-
-2019/03/06 21:38:24 >  Using KDC(s):
-2019/03/06 21:38:24 >   pdc01.lab.ropnop.com:88
-
-2019/03/06 21:38:27 >  [+] VALID LOGIN:  thoffman@lab.ropnop.com:Summer2017
-2019/03/06 21:38:27 >  Done! Tested 1001 logins (1 successes) in 2.711 seconds
+```bash
+./ghostbrute bruteuser -d contoso.local --dc 10.0.0.1 passwords.txt jsmith
 ```
 
-### Brute Force
-This mode simply reads username and password combinations (in the format `username:password`) from a file or from `stdin` and tests them with Kerberos PreAuthentication. It will skip any blank lines or lines with blank usernames/passwords. This will generate both event IDs [4768 - A Kerberos authentication ticket (TGT) was requested](https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventID=4768) and [4771 - Kerberos pre-authentication failed](https://www.ultimatewindowssecurity.com/securitylog/encyclopedia/event.aspx?eventID=4771)
-```
-$ cat combos.lst | ./kerbrute -d lab.ropnop.com bruteforce -
+### bruteforce
 
-    __             __               __
-   / /_____  _____/ /_  _______  __/ /____
-  / //_/ _ \/ ___/ __ \/ ___/ / / / __/ _ \
- / ,< /  __/ /  / /_/ / /  / /_/ / /_/  __/
-/_/|_|\___/_/  /_.___/_/   \__,_/\__/\___/
+Test username:password combos from a file or stdin.
 
-Version: dev (n/a) - 05/11/19 - Ronnie Flathers @ropnop
-
-2019/05/11 18:40:56 >  Using KDC(s):
-2019/05/11 18:40:56 >   pdc01.lab.ropnop.com:88
-
-2019/05/11 18:40:56 >  [+] VALID LOGIN:  athomas@lab.ropnop.com:Password1234
-2019/05/11 18:40:56 >  Done! Tested 7 logins (1 successes) in 0.114 seconds
+```bash
+./ghostbrute bruteforce -d contoso.local --dc 10.0.0.1 combos.txt
+cat combos.txt | ./ghostbrute bruteforce -d contoso.local -
 ```
 
-## Installing
-You can download pre-compiled binaries for Linux, Windows and Mac from the [releases page](https://github.com/ropnop/kerbrute/releases/tag/latest). If you want to live on the edge, you can also install with Go:
+## Timing Configuration
+
+The timing engine controls how fast ghostbrute sprays based on the time of day and day of the week. Create a JSON config file:
+
+```json
+{
+  "utc_offset": 2,
+  "base_delay": 5.0,
+  "daily_speedup": 1.25,
+  "initial_speed": 0.5,
+  "jitter_min": 1.0,
+  "jitter_max": 3.0,
+  "hours_factor": {
+    "0": 0.1, "1": 0.1, "2": 0.1, "3": 0.1,
+    "4": 0.1, "5": 0.1, "6": 0.2, "7": 0.5,
+    "8": 1.0, "9": 1.0, "10": 0.8, "11": 0.4,
+    "12": 0.6, "13": 0.8, "14": 0.5, "15": 0.5,
+    "16": 0.5, "17": 0.5, "18": 0.6, "19": 0.3,
+    "20": 0.2, "21": 0.1, "22": 0.1, "23": 0.1
+  },
+  "days_factor": {
+    "mon": 1.0, "tue": 1.0, "wed": 1.0, "thu": 1.0, "fri": 1.0,
+    "sat": 0.1, "sun": 0.1
+  }
+}
+```
+
+An example config is included: [`timing.example.json`](timing.example.json)
+
+### Timing fields
+
+| Field | Description | Default |
+|---|---|---|
+| `utc_offset` | Target timezone as UTC offset (e.g. `2` for CEST, `-5` for EST) | `0` |
+| `base_delay` | Base delay in seconds between requests at factor 1.0 | `5.0` |
+| `initial_speed` | Starting speed multiplier | `1.0` |
+| `daily_speedup` | Multiplier applied per day of running (ramps up over time) | `1.0` |
+| `jitter_min` | Minimum random jitter added to each delay (seconds) | `0` |
+| `jitter_max` | Maximum random jitter added to each delay (seconds) | `0` |
+| `hours_factor` | Speed factor per hour (0-23). `1.0` = full speed, `0.1` = 10x slower | Business hours curve |
+| `days_factor` | Speed factor per day (mon-sun). `1.0` = full speed, `0.1` = 10x slower | Weekdays full, weekends slow |
+
+### How delay is computed
 
 ```
-$ go get github.com/ropnop/kerbrute
+effective_delay = base_delay / (hour_factor * day_factor * speed_multiplier) + jitter
 ```
 
-With the repository cloned, you can also use the Make file to compile for common architectures:
+Where `speed_multiplier = initial_speed * daily_speedup ^ days_running` (capped at 10x).
+
+The minimum effective delay is 100ms regardless of configuration.
+
+**Example:** At 9 AM on a Tuesday with the default config:
+- `hour_factor = 1.0`, `day_factor = 1.0`, `speed = 1.0`
+- `delay = 5.0 / (1.0 * 1.0 * 1.0) = 5 seconds` + jitter
+
+At 2 AM on a Sunday:
+- `hour_factor = 0.1`, `day_factor = 0.1`, `speed = 1.0`
+- `delay = 5.0 / (0.1 * 0.1 * 1.0) = 500 seconds` → pauses (factor < 0.05)
+
+### Off-hours pausing
+
+When `hour_factor * day_factor < 0.05`, the campaign pauses entirely and polls every 30 seconds until the factors rise above the threshold. This happens during nighttime on weekends with the default config.
+
+## Cache / Resume
+
+ghostbrute writes a JSON cache file after every attempt:
+
+```json
+{
+  "results": [
+    {"username": "jsmith", "password": "Spring2026!", "success": false, "error": "Invalid password", "timestamp": "2026-09-18T09:15:32Z"},
+    {"username": "jdoe", "password": "Spring2026!", "success": true, "timestamp": "2026-09-18T09:15:37Z"}
+  ]
+}
+```
+
+On restart with the same `--cache-file`, already-tried username:password pairs are skipped automatically.
+
+The cache file is written with `0600` permissions (owner-only read/write).
+
+## Global Flags
 
 ```
-$ make help
-help:            Show this help.
-windows:  Make Windows x86 and x64 Binaries
-linux:  Make Linux x86 and x64 Binaries
-mac:  Make Darwin (Mac) x86 and x64 Binaries
-clean:  Delete any binaries
-all:  Make Windows, Linux and Mac x86/x64 Binaries
-
-$ make all
-Done.
-Building for windows amd64..
-Building for windows 386..
-Done.
-Building for linux amd64...
-Building for linux 386...
-Done.
-Building for mac amd64...
-Building for mac 386...
-Done.
-
-$ ls dist/
-kerbrute_darwin_386        kerbrute_linux_386         kerbrute_windows_386.exe
-kerbrute_darwin_amd64      kerbrute_linux_amd64       kerbrute_windows_amd64.exe
+-d, --domain string      The full domain to use (e.g. contoso.com)
+    --dc string          The location of the Domain Controller (KDC) to target. If blank, will lookup via DNS
+-o, --output string      File to write logs to (written with 0600 permissions). Optional.
+-v, --verbose            Log failures and errors
+    --safe               Safe mode. Will abort if any user comes back as locked out.
+-t, --threads int        Threads to use (default 10)
+    --delay int          Delay in milliseconds between each attempt. Forces single thread if set
+    --downgrade          Force downgraded encryption type (arcfour-hmac-md5)
+    --hash-file string   File to save AS-REP hashes to (if any captured)
 ```
+
+## Detection and OPSEC Notes
+
+**What makes ghostbrute harder to detect:**
+- Kerberos pre-auth generates event 4768/4771, not the commonly-monitored 4625
+- gokrb5's AS-REQ packets match real Windows Kerberos clients on the wire — no known byte-level signatures
+- Traffic shaping blends requests into normal authentication patterns
+- Off-hours pausing avoids anomalous nighttime/weekend activity
+
+**What can still detect it:**
+- Suricata/NDR rules that threshold on AS-REQ volume from a single source IP (default rule: 10+ in 30s — ghostbrute's timing engine keeps you well below this)
+- SIEM correlation of 4768 events across many users from one source
+- Anomalous `ClientAdvertizedEncryptionTypes` in event 4768 on Server 2016+ with 2025+ cumulative updates
+
+**WARNING:** Failed Kerberos pre-authentication counts as a failed login and WILL lock out accounts. Always use `--safe` and `--max-per-user` on real engagements.
 
 ## Credits
-Huge shoutout to jcmturner for his pure Go implementation of KRB5: https://github.com/jcmturner/gokrb5 . An amazing project and very well documented. Couldn't have done any of this without that project. 
 
-Shoutout to [audibleblink](https://github.com/audibleblink) for the suggestion and implementation of the `delay` option!
+- [kerbrute](https://github.com/ropnop/kerbrute) by [Ronnie Flathers (@ropnop)](https://github.com/ropnop) — the foundation this is built on
+- [gokrb5](https://github.com/jcmturner/gokrb5) by jcmturner — pure Go Kerberos implementation
+- [CaptainCredz](https://github.com/synacktiv/captaincredz) by Synacktiv — inspiration for the timing engine and traffic shaping concept
+- [deadjakk](https://github.com/deadjakk) — original `spraycampaign` concept in kerbrute [PR #41](https://github.com/ropnop/kerbrute/pull/41)
+
+## License
+
+Same as kerbrute — see [LICENSE](LICENSE).

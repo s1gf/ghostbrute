@@ -12,8 +12,15 @@ var rootCmd = &cobra.Command{
 	Short: "Evasive Kerberos password spraying with traffic-shaped timing",
 	Long: `ghostbrute is an evasive Kerberos pre-authentication spraying tool with
 CaptainCredz-style traffic shaping, cache/resume, and fine-grained timing control.
-Built for long-running red team engagements where blending into normal auth traffic matters.
-Based on kerbrute by @ropnop. Warning: failed Kerberos Pre-Auth counts as a failed login and WILL lock out accounts`,
+
+The primary mode is 'spraycampaign', which sprays a password list across a user list
+with traffic-shaped delays that match normal business-hour authentication patterns.
+
+Use 'spraycampaign' for engagements. The original kerbrute commands (passwordspray,
+bruteuser, bruteforce, userenum) are also available for quick one-off tasks.
+
+Based on kerbrute by @ropnop.
+WARNING: failed Kerberos Pre-Auth counts as a failed login and WILL lock out accounts.`,
 }
 
 func Execute() {
